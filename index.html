@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STEMI Consult</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: clinical, fast, calm — a tool used at 2 a.m. in an ER
+   IDEA: ECG paper — the 12-lead layout is the tap target
+   PICTURE: pink-grid lead board; each lead draws its own ST segment as you tap
+   COLOUR and TYPE: white / ink, STEMI red for STE, blue for STD; IBM Plex Sans Thai
+   LAYOUT: one column, sticky section nav, sticky dock with missing items + copy */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#111315);--ink:light-dark(#16181b,#eceef0);--mute:light-dark(#5d636b,#9aa1a9);--line:light-dark(#e2e4e8,#2b2f34);--soft:light-dark(#f3f4f6,#1c1f22);--red:light-dark(#cf1f38,#ff5a6e);--blue:light-dark(#1f5fd6,#78a6ff);--ok:light-dark(#0f7a4a,#4cd39a);--paper:light-dark(#fff4f4,#24171a);--grid:light-dark(rgba(214,60,80,.16),rgba(255,110,130,.12));--warn:light-dark(#fff4dc,#2d2412);--warnInk:light-dark(#7a4b00,#ffcf73)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "IBM Plex Sans Thai",system-ui,sans-serif;overflow-x:clip;padding-bottom:96px}
+button,input,select,textarea{font:inherit;color:inherit}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:12px;padding:10px max(4vw,14px);flex-wrap:wrap}
+.brand{font-size:20px;font-weight:700;letter-spacing:-.01em}.brand i{font-style:normal;color:var(--red)}
+.tabs{display:flex;gap:4px;margin-left:auto;background:var(--soft);padding:4px;border-radius:12px}
+.tab{border:0;background:none;padding:8px 14px;border-radius:9px;min-height:40px;font-weight:600;color:var(--mute);cursor:pointer}
+.tab.on{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.nav{display:flex;gap:6px;padding:0 max(4vw,14px) 10px;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}
+.nav a{flex:none;text-decoration:none;color:var(--mute);font-size:14px;padding:6px 12px;border-radius:999px;background:var(--soft)}
+main{max-width:760px;margin:0 auto;padding:0 max(4vw,14px)}
+section{padding:22px 0 8px;border-bottom:1px solid var(--line);scroll-margin-top:120px}
+h2{font-size:22px;margin:0 0 10px;line-height:1.2}
+h3{font-size:14px;font-weight:600;color:var(--mute);margin:14px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:44px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--soft);cursor:pointer;font-size:15px;line-height:1.2}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chips.red .chip.on{background:var(--red);border-color:var(--red);color:#fff}
+.chips.num .chip{min-width:44px;padding:8px 0;flex:1 0 44px}
+input,select,textarea{width:100%;min-height:44px;font-size:16px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+textarea{min-height:96px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+label.f{display:block;font-size:14px;color:var(--mute)}label.f input,label.f select{margin-top:4px;color:var(--ink)}
+.g2,.g3,.g4{display:grid;gap:8px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.mt{margin-top:8px}.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.tin{display:flex;gap:6px;align-items:center}.tin input{flex:1}
+.now{flex:none;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--soft);cursor:pointer;font-size:14px}
+.tools{display:flex;gap:8px;padding:16px 0 0;flex-wrap:wrap}
+.tools button,.btn{min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--bg);cursor:pointer;font-weight:500}
+.btn.pri{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:var(--bg);font-weight:600}
+.note{font-size:13px;color:var(--mute);margin:6px 0 0}
+/* ECG board */
+.ecg{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:10px 10px;border-radius:14px;padding:10px;display:grid;gap:6px;grid-template-columns:repeat(4,minmax(0,1fr))}
+.ecg.ext{grid-template-columns:repeat(5,minmax(0,1fr));margin-top:8px}
+.lead{border:1px solid transparent;background:color-mix(in srgb,var(--bg) 55%,transparent);border-radius:10px;padding:6px 4px 4px;cursor:pointer;display:grid;justify-items:center;gap:0;min-height:76px;color:var(--ink)}
+.lead span{font-weight:700;font-size:15px;line-height:1}
+.lead svg{width:100%;max-width:72px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.lead em{font-style:normal;font-size:12px;line-height:1.2;color:var(--mute);font-weight:600}
+.lead.sE{color:var(--red);border-color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--bg))}.lead.sE em{color:var(--red)}
+.lead.sD{color:var(--blue);border-color:var(--blue);background:color-mix(in srgb,var(--blue) 9%,var(--bg))}.lead.sD em{color:var(--blue)}
+.lead.sN em{color:var(--ok)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:6px 0}
+.legend b{font-weight:600}.legend .e{color:var(--red)}.legend .d{color:var(--blue)}
+.hints{display:grid;gap:6px;margin-top:10px}.hints:empty{display:none}
+.hint{background:var(--warn);color:var(--warnInk);border-radius:10px;padding:9px 12px;font-size:14px;line-height:1.4}
+.sug{display:inline-block;font-size:13px;color:var(--mute);margin-left:6px}
+/* BP body */
+.bp{display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);gap:8px;align-items:center}
+.bp svg{width:64px;height:110px;grid-row:span 2;fill:var(--soft);stroke:var(--mute);stroke-width:1.5}
+.bpd{font-size:14px;margin-top:6px;color:var(--mute)}
+/* photos */
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.slot{position:relative;display:block;aspect-ratio:4/3;border:1.5px dashed var(--line);border-radius:12px;overflow:hidden;cursor:pointer;background:var(--soft)}
+.slot input{position:absolute;opacity:0;width:1px;height:1px}
+.ph{position:absolute;inset:0;display:grid;place-content:center;text-align:center;font-size:14px;color:var(--mute);padding:6px}
+.ph b{font-size:28px;font-weight:400;line-height:1}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ph i{position:absolute;left:6px;bottom:6px;font-style:normal;font-size:12px;background:rgba(0,0,0,.65);color:#fff;padding:2px 8px;border-radius:6px}
+.x{position:absolute;top:6px;right:6px;border:0;border-radius:8px;background:rgba(0,0,0,.65);color:#fff;font-size:13px;padding:6px 10px;cursor:pointer}
+/* output */
+.out{white-space:pre-wrap;background:var(--soft);border-radius:12px;padding:14px;font:14px/1.55 "IBM Plex Sans Thai",system-ui,sans-serif;margin:8px 0;user-select:text;overflow-wrap:anywhere}
+.act{display:flex;gap:8px;flex-wrap:wrap}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--bg);border-top:1px solid var(--line);padding:10px max(4vw,14px) calc(10px + env(safe-area-inset-bottom))}
+.dock .in{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.miss{flex:1;font-size:13px;line-height:1.35;color:var(--mute)}.miss b{color:var(--red);font-weight:600}.miss.ok b{color:var(--ok)}
+.ov{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.55);display:grid;place-items:end center}
+.ov[hidden]{display:none}
+.sheet{background:var(--bg);width:min(760px,100%);max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px max(4vw,14px) calc(18px + env(safe-area-inset-bottom))}
+.sheet img{width:100%;border-radius:10px;border:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;transition:.2s;z-index:10;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1;transform:translateX(-50%)}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media(max-width:600px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.ecg{padding:7px;gap:4px}.lead{min-height:70px}.ecg.ext{grid-template-columns:repeat(5,minmax(0,1fr))}.lead span{font-size:13px}.lead em{font-size:11px}.brand{font-size:18px}.tabs{margin-left:0;width:100%}.tab{flex:1}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar"><span class="brand"><i>STEMI</i> Consult</span>
+    <div class="tabs" role="tablist"><button class="tab on" data-tab="c">ส่ง consult (รพช.)</button><button class="tab" data-tab="r">ตอบกลับ (Cardio)</button></div>
+  </div>
+  <nav class="nav" id="nav">
+    <a href="#s-pt">ผู้ป่วย</a><a href="#s-cc">อาการ</a><a href="#s-vs">V/S · BP 4 รยางค์</a><a href="#s-pe">ตรวจร่างกาย</a><a href="#s-ekg">EKG</a><a href="#s-cxr">CXR · Lab</a><a href="#s-img">รูป</a><a href="#s-tx">Tx · CI</a><a href="#s-sum">สรุป</a>
+  </nav>
+</header>
+
+<main id="tab-c" data-scope="c">
+  <div class="tools"><button id="sample" type="button">โหลดเคสตัวอย่าง</button><button id="clear" type="button">ล้างเคส / เคสใหม่</button></div>
+
+  <section id="s-pt"><h2>ผู้ป่วย</h2>
+    <label class="f">ขออนุญาต consult from รพ.<input data-k="hosp" placeholder="เช่น อต (จำไว้ให้ครั้งหน้า)"></label>
+    <div class="g2 mt"><div><h3>เพศ</h3><div class="chips" data-k="sex" data-o="female|male"></div></div>
+      <label class="f"><h3>อายุ (ปี)</h3><input data-k="age" inputmode="numeric" placeholder="82"></label></div>
+    <h3>U/D</h3><div class="chips" data-k="ud" data-m="1" data-o="HT|DM|DLP|CKD|Old CVA|CAD|AF|HF|COPD|Smoker"></div>
+    <input class="mt" data-k="udx" placeholder="โรคอื่น ๆ">
+    <h3>Last admit</h3><input data-k="last" placeholder="เช่น 27-29/10/69 Rt hemiparesis > Acute ischemic stroke">
+    <h3>Allergy</h3><div class="chips" data-k="allergy" data-o="Deny drug/food allergy|มีประวัติแพ้"></div>
+    <input class="mt" data-k="allx" placeholder="ถ้าแพ้ ระบุชื่อยา/อาหาร">
+    <h3>Status เดิม</h3><div class="chips" data-k="status" data-m="1" data-o="ช่วยเหลือตัวเองได้|ติดบ้าน|bed ridden|พูดไม่ได้|on NG|on TT"></div>
+    <p class="note">ไม่มีช่องชื่อ/HN โดยตั้งใจ เพื่อส่งต่อในแชทได้ปลอดภัยขึ้น</p>
+  </section>
+
+  <section id="s-cc"><h2>อาการสำคัญ</h2>
+    <h3>CC</h3><div class="chips red" data-k="cc" data-m="1" data-o="เจ็บแน่นหน้าอก|หายใจเหนื่อย|จุกแน่นลิ้นปี่|ใจสั่น|หมดสติ/syncope|กระสับกระส่าย|เหงื่อแตก ตัวเย็น"></div>
+    <div class="g2 mt">
+      <label class="f">เริ่มมีอาการ (onset)<span class="tin"><input type="time" data-k="onset"><button type="button" class="now" data-now="onset">ตอนนี้</button></span></label>
+      <label class="f">ถึง รพ. (door)<span class="tin"><input type="time" data-k="door"><button type="button" class="now" data-now="door">ตอนนี้</button></span></label>
+    </div>
+    <h3>ลักษณะเจ็บ</h3><div class="chips" data-k="pc" data-m="1" data-o="แน่นๆ ถูกกดทับ|บีบรัด|แสบร้อน|แทง|เจ็บตลอด >20 นาที"></div>
+    <h3>ร้าวไป</h3><div class="chips" data-k="rad" data-m="1" data-o="กราม|แขนซ้าย|แขนขวา|ไหล่|หลัง"></div>
+    <h3>อาการร่วม</h3><div class="chips" data-k="assoc" data-m="1" data-o="เหงื่อแตก|คลื่นไส้อาเจียน|ใจสั่น|หน้ามืด|หายใจเหนื่อย|นอนราบไม่ได้"></div>
+    <h3>Pain score</h3><div class="chips num" data-k="ps" data-o="0|1|2|3|4|5|6|7|8|9|10"></div>
+    <div class="chips mt" data-k="ps2" data-o="ประเมินไม่ได้"></div>
+    <h3>PI</h3>
+    <div class="chips" id="insChips"></div>
+    <textarea id="pi" class="mt" data-k="pi" placeholder="เล่าสั้น ๆ: ใครให้ประวัติ เกิดอะไรขึ้น EMS พบอะไร"></textarea>
+  </section>
+
+  <section id="s-vs"><h2>V/S</h2>
+    <div class="g3"><label class="f">BT<input data-k="bt" inputmode="decimal"></label><label class="f">PR<input data-k="pr" inputmode="numeric"></label><label class="f">RR<input data-k="rr" inputmode="numeric"></label></div>
+    <div class="g2 mt"><label class="f">SpO₂ แรกรับ %<input data-k="sp1" inputmode="numeric"></label><label class="f">SpO₂ หลังให้ O₂ %<input data-k="sp2" inputmode="numeric"></label></div>
+    <h3>O₂</h3><div class="chips" data-k="o2" data-o="RA|O2 cannula|Mask c bag|HFNC|NIV|ETT"></div>
+    <h3>BP 4 รยางค์ (SBP/DBP)</h3>
+    <div class="bp">
+      <label class="f">แขนขวา<input data-k="bpRA" inputmode="numeric" placeholder="120/80"></label>
+      <svg viewBox="0 0 64 110" aria-hidden="true"><circle cx="32" cy="12" r="9"/><path d="M20 26h24l8 34h-7l-5-22v20l4 46h-8l-4-34-4 34h-8l4-46V38l-5 22h-7z"/></svg>
+      <label class="f">แขนซ้าย<input data-k="bpLA" inputmode="numeric" placeholder="120/80"></label>
+      <label class="f">ขาขวา<input data-k="bpRL" inputmode="numeric"></label>
+      <label class="f">ขาซ้าย<input data-k="bpLL" inputmode="numeric"></label>
+    </div>
+    <div class="bpd" id="bpd"></div>
+    <div class="g2 mt"><label class="f">DTX mg%<input data-k="dtx" inputmode="numeric"></label></div>
+  </section>
+
+  <section id="s-pe"><h2>ตรวจร่างกาย</h2>
+    <h3>Heart</h3><div class="chips" data-k="heart" data-m="1" data-o="Regular|Irregular|Tachycardia|No murmur|Murmur|S3 gallop|JVP engorged"></div>
+    <h3>Lung</h3><div class="chips" data-k="lung" data-m="1" data-o="Clear|Fine crep basal|Crepitation both lungs|Wheeze both|Subcostal retraction|Decreased BS"></div>
+    <h3>Extremities</h3><div class="chips" data-k="ext" data-m="1" data-o="No edema|Pitting edema|Cold clammy skin|CRT > 2 s|Pulse ต่างกัน 2 ข้าง"></div>
+    <h3>Neuro</h3>
+    <div class="g4">
+      <label class="f">E<select data-k="gE"><option></option><option>4</option><option>3</option><option>2</option><option>1</option></select></label>
+      <label class="f">V<select data-k="gV"><option></option><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option><option>T</option></select></label>
+      <label class="f">M<select data-k="gM"><option></option><option>6</option><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></label>
+      <label class="f">Motor Rt/Lt<input data-k="motor" placeholder="0/3"></label>
+    </div>
+    <h3>Killip class <span class="sug" id="ks"></span></h3>
+    <div class="chips" data-k="killip" data-o="I|II|III|IV"></div>
+    <p class="note">I ไม่มี HF · II S3/crep basal · III pulmonary edema · IV cardiogenic shock</p>
+  </section>
+
+  <section id="s-ekg"><h2>EKG</h2>
+    <div class="g2"><label class="f">เวลาทำ EKG<span class="tin"><input type="time" data-k="ekgT"><button type="button" class="now" data-now="ekgT">ตอนนี้</button></span></label><label class="f">Rate<input data-k="rate" inputmode="numeric"></label></div>
+    <h3>Rhythm</h3><div class="chips" data-k="rhythm" data-o="Sinus rhythm|Sinus tachycardia|Sinus bradycardia|AF|2° AV block|CHB|VT"></div>
+    <div class="legend"><span>แตะ lead เพื่อเปลี่ยน:</span><b class="e">ครั้งที่ 1 = STE</b><b class="d">ครั้งที่ 2 = STD</b><span>ครั้งที่ 3 = ล้าง</span></div>
+    <div class="ecg" id="g12"></div>
+    <h3>Extra leads (V7-9, V3R, V4R) — แตะ: ปกติ → STE → STD</h3>
+    <div class="ecg ext" id="gx"></div>
+    <h3>อื่น ๆ</h3><div class="chips" data-k="ekgx" data-m="1" data-o="New LBBB|RBBB|Hyperacute T|Q wave|de Winter|Wellens|Poor R progression"></div>
+    <div class="hints" id="hints"></div>
+  </section>
+
+  <section id="s-cxr"><h2>CXR · Lab</h2>
+    <h3>CXR</h3><div class="chips" data-k="cxr" data-m="1" data-o="Normal|Cardiomegaly|Pulmonary congestion|Pulmonary edema|Wide mediastinum|Pleural effusion|Infiltrate"></div>
+    <input class="mt" data-k="cxrx" placeholder="CXR เพิ่มเติม">
+    <h3>Lab</h3>
+    <div class="g3"><label class="f">Trop<input data-k="trop"></label><label class="f">Cr<input data-k="cr" inputmode="decimal"></label><label class="f">K<input data-k="k" inputmode="decimal"></label></div>
+    <input class="mt" data-k="labx" placeholder="Lab อื่น ๆ">
+  </section>
+
+  <section id="s-img"><h2>รูป EKG · CXR</h2>
+    <div class="slots" id="slots"></div>
+    <p class="note">รูปถูกย่อในเครื่อง ไม่ถูกอัปโหลดที่ไหน · กด “รวมรูป” ด้านล่างเพื่อได้ภาพเดียวส่งต่อใน LINE</p>
+  </section>
+
+  <section id="s-tx"><h2>การรักษาที่ให้แล้ว</h2>
+    <div class="chips" data-k="tx" data-m="1" data-o="O2|ASA 300 mg chew|Clopidogrel 300 mg|Clopidogrel 600 mg|Ticagrelor 180 mg|Enoxaparin|UFH IV|NTG SL|Morphine IV|Furosemide IV|IV fluid|Norepinephrine|ETT intubation"></div>
+    <input class="mt" data-k="txx" placeholder="อื่น ๆ / ขนาดยา">
+    <h3>Fibrinolytic contraindication — absolute</h3>
+    <div class="chips red" data-k="ciA" data-m="1" data-o="เคยมีเลือดออกในสมอง|Ischemic stroke < 3 เดือน|เนื้องอก/AVM ในสมอง|สงสัย aortic dissection|Active bleeding|Head trauma < 3 เดือน|ผ่าตัดสมอง/ไขสันหลัง < 2 เดือน"></div>
+    <h3>Relative</h3>
+    <div class="chips" data-k="ciR" data-m="1" data-o="BP > 180/110|On anticoagulant|CPR > 10 นาที|ผ่าตัดใหญ่ < 3 สัปดาห์|GI bleed < 4 สัปดาห์|ตั้งครรภ์|เคยได้ SK > 5 วัน|Dementia"></div>
+    <div class="chips mt" data-k="ciNo" data-o="ตรวจแล้ว ไม่มี CI"></div>
+  </section>
+
+  <section id="s-sum"><h2>สรุป & ส่ง</h2>
+    <label class="f">Impression (สร้างจาก EKG อัตโนมัติ แก้ได้)<input id="imp" data-k="imp"></label>
+    <button type="button" class="btn mt" id="impReset">ใช้ค่าที่ระบบแนะนำ</button>
+    <h3>ขอคำแนะนำเรื่อง</h3>
+    <div class="chips" data-k="ask" data-m="1" data-o="ขอคำแนะนำการรักษา|พิจารณาให้ SK|ขอ refer PPCI|ขอ refer ด่วน|ยืนยันการอ่าน EKG"></div>
+    <h3>ข้อความที่จะส่ง</h3>
+    <div class="out" id="out"></div>
+    <div class="act"><button type="button" class="btn pri" data-copy="out">คัดลอกข้อความ</button><button type="button" class="btn dark" id="collage">รวมรูปเป็นภาพเดียว</button></div>
+    <p class="note">ขนาดยาและ checklist เป็นค่าเริ่มต้น ตรวจตาม protocol เครือข่ายของท่าน · ร่างเคสบันทึกในเครื่องนี้เท่านั้น</p>
+  </section>
+</main>
+
+<main id="tab-r" data-scope="r" hidden>
+  <section><h2>ตอบกลับ consult</h2>
+    <div class="g2"><label class="f">ผู้ตอบ<input data-k="name" placeholder="ชื่อแพทย์ / รพ.แม่ข่าย"></label>
+      <label class="f">เวลา<span class="tin"><input type="time" data-k="rt"><button type="button" class="now" data-now="rt">ตอนนี้</button></span></label></div>
+    <h3>Dx</h3><div class="chips red" data-k="dx" data-o="STEMI ยืนยัน|STEMI equivalent|NSTE-ACS|ยังไม่ชัด ขอ EKG ซ้ำ|Not ACS"></div>
+    <input class="mt" data-k="terr" placeholder="Territory เช่น Posterior wall / Inferior + RV">
+    <h3>Reperfusion</h3><div class="chips" data-k="rep" data-m="1" data-o="Activate cath lab: refer PPCI ด่วน|ให้ SK 1.5 MU IV drip ใน 60 นาที|Pharmaco-invasive: หลัง SK refer ภายใน 2-24 ชม.|ไม่ให้ fibrinolytic (มี CI)|EKG ซ้ำ 60-90 นาทีหลัง SK ประเมิน reperfusion|Failed reperfusion → rescue PCI"></div>
+    <h3>ยา</h3><div class="chips" data-k="med" data-m="1" data-o="ASA 300 mg chew|Clopidogrel 300 mg|Clopidogrel 75 mg (อายุ ≥75 + lytic)|Clopidogrel 600 mg (ไป PPCI)|Ticagrelor 180 mg|Enoxaparin ตามอายุ/eGFR|UFH IV bolus|Furosemide IV|งด NTG (RV infarct)"></div>
+    <h3>อื่น ๆ</h3><div class="chips" data-k="oth" data-m="1" data-o="EKG ซ้ำทุก 15-30 นาที|Trop ซ้ำ|Echo ถ้าทำได้|คุม BP < 140/90|O2 keep SpO2 ≥ 90%|โทรกลับเมื่ออาการเปลี่ยน"></div>
+    <textarea class="mt" data-k="note" placeholder="หมายเหตุเพิ่มเติม"></textarea>
+    <h3>ข้อความตอบกลับ</h3>
+    <div class="out" id="outR"></div>
+    <div class="act"><button type="button" class="btn pri" data-copy="outR">คัดลอกข้อความ</button><button type="button" class="btn" id="clearR">ล้าง</button></div>
+  </section>
+</main>
+
+<div class="dock"><div class="in"><div class="miss" id="miss"></div><button type="button" class="btn pri" id="dockCopy">คัดลอก</button></div></div>
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const KEY='stemi-consult-v1',HK='stemi-hosp';
+const ALL=['I','II','III','aVR','aVL','aVF','V1','V2','V3','V4','V5','V6','V7','V8','V9','V3R','V4R'];
+const G12=['I','aVR','V1','V4','II','aVL','V2','V5','III','aVF','V3','V6'];
+const EXT=['V7','V8','V9','V3R','V4R'];
+const SLOTS=[['ekg','EKG 12 leads'],['post','V7-9'],['right','V3R, V4R'],['cxr','CXR'],['other','อื่น ๆ']];
+const INS=['ไม่มีไข้','ไม่ไอ','ไม่สำลัก','อาการไม่ทุเลาหลังพัก','EMS ออกรับ','เป็นครั้งแรก','เคยเป็นแบบนี้มาก่อน'];
+let S={leads:{}},R={},P={},tab='c';
+const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const load=()=>{try{S=Object.assign({leads:{}},JSON.parse(localStorage.getItem(KEY)||'{}'));R=JSON.parse(localStorage.getItem(KEY+'r')||'{}');const h=localStorage.getItem(HK);if(h&&!S.hosp)S.hosp=h}catch(e){}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem(KEY+'r',JSON.stringify(R));if(S.hosp)localStorage.setItem(HK,S.hosp)}catch(e){}};
+const scope=el=>el.closest('[data-scope]')?.dataset.scope==='r'?R:S;
+const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),2200)};
+const hhmm=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+const toM=t=>{const m=/^(\d{1,2})[:.](\d{2})$/.exec(t||'');return m?(+m[1])*60+(+m[2]):null};
+const diff=(a,b)=>{const x=toM(a),y=toM(b);return x==null||y==null?null:(y-x+1440)%1440};
+const dur=m=>m<60?`${m} min`:`${Math.floor(m/60)} hr${m%60?' '+m%60+' min':''}`;
+const sbp=k=>parseInt(String(S[k]||'').split('/')[0])||0;
+const arr=k=>S[k]||[];
+
+$$('.chips[data-o]').forEach(c=>{c.innerHTML=c.dataset.o.split('|').map(o=>`<button type="button" class="chip" data-v="${esc(o)}">${esc(o)}</button>`).join('')});
+$('#insChips').innerHTML=INS.map(t=>`<button type="button" class="chip ins" data-t="${esc(t)}">+ ${esc(t)}</button>`).join('');
+$('#slots').innerHTML=SLOTS.map(([k,l])=>`<label class="slot"><input type="file" accept="image/*" data-slot="${k}"><span class="ph" id="ph-${k}"></span></label>`).join('');
+
+const wave=s=>{const y=s==='E'?12:s==='D'?26:20,t=s==='E'?2:s==='D'?13:10;return `<svg viewBox="0 0 48 32" aria-hidden="true"><path d="M0 20H4q3-4 6 0H13L15 22L17 3L20 25L22 ${y}L29 ${y}Q35 ${t} 41 20H48"/></svg>`};
+const LAB={E:'STE',D:'STD',N:'ปกติ'};
+const cell=n=>{const v=S.leads[n]||'';return `<button type="button" class="lead s${v||'0'}" data-l="${n}" aria-label="${n} ${LAB[v]||''}"><span>${n}</span>${wave(v)}<em>${LAB[v]||(EXT.includes(n)?'ยังไม่ทำ':'–')}</em></button>`};
+
+const fmtL=l=>{const limb=l.filter(x=>!/^V/.test(x)),v=l.filter(x=>/^V\d$/.test(x)).map(x=>+x.slice(1)),r=l.filter(x=>/^V\dR$/.test(x)),o=[];
+  for(let i=0;i<v.length;){let j=i;while(j+1<v.length&&v[j+1]===v[j]+1)j++;o.push(j>i?`V${v[i]}-${v[j]}`:`V${v[i]}`);i=j+1}
+  r.length===2?o.push('V3R-4R'):o.push(...r);return [...o,...limb].join(', ')};
+
+function analyse(){
+  const L=S.leads,E=ALL.filter(k=>L[k]==='E'),D=ALL.filter(k=>L[k]==='D'),N=ALL.filter(k=>L[k]==='N');
+  const has=(set,a)=>set.filter(x=>a.includes(x)).length;
+  const terr=[],ant=has(['V1','V2','V3','V4'],E),lat=has(['I','aVL','V5','V6'],E);
+  if(ant>=2)terr.push(lat>=2?'Extensive anterior':'Anterior');else if(lat>=2)terr.push('Lateral');
+  if(has(['II','III','aVF'],E)>=2)terr.push('Inferior');
+  if(has(['V7','V8','V9'],E)>=1)terr.push('Posterior');
+  const rv=has(['V3R','V4R'],E)>=1,gen=D.length>=8,avr=E.includes('aVR')&&D.length>=6;
+  const parts=[];
+  if(E.length&&D.length)parts.push(gen?`Generalized STD c STE ${fmtL(E)}`:`STE ${fmtL(E)} c STD ${fmtL(D)}`);
+  else if(E.length)parts.push('STE '+fmtL(E));else if(D.length)parts.push(gen?'Generalized STD':'STD '+fmtL(D));
+  if(N.length)parts.push(`${fmtL(N)}: no STE`);
+  const x=arr('ekgx');let imp='';
+  if(terr.length)imp=`R/O ${terr.join(' + ')} wall STEMI${rv?' c RV infarction':''}`;
+  else if(rv)imp='R/O RV infarction';
+  else if(avr)imp='R/O LM/3VD disease (STE aVR c diffuse STD)';
+  else if(x.some(v=>/LBBB|de Winter|Hyperacute/.test(v)))imp=`R/O STEMI equivalent (${x.filter(v=>/LBBB|de Winter|Hyperacute/.test(v)).join(', ')})`;
+  else if(x.includes('Wellens'))imp='R/O critical LAD stenosis (Wellens)';
+  if(imp&&S.killip==='III')imp+=' c ADHF';if(imp&&S.killip==='IV')imp+=' c cardiogenic shock';
+  const H=[],tx=arr('tx');
+  if(has(['V1','V2','V3'],D)>=2&&!['V7','V8','V9'].some(k=>L[k]))H.push('STD V1-3 → ทำ V7-9 เพื่อหา posterior STEMI');
+  if(has(['II','III','aVF'],E)>=2&&!['V3R','V4R'].some(k=>L[k]))H.push('Inferior STE → ทำ V3R, V4R เพื่อหา RV infarction');
+  if(rv&&tx.some(v=>/NTG|Morphine/.test(v)))H.push('RV infarction: ระวัง NTG/morphine (preload dependent)');
+  if(avr)H.push('STE aVR + STD ≥ 6 leads → นึกถึง LM/3VD หรือ diffuse subendocardial ischemia');
+  const ra=sbp('bpRA'),la=sbp('bpLA');
+  if(ra&&la&&Math.abs(ra-la)>20)H.push(`SBP แขนต่างกัน ${Math.abs(ra-la)} mmHg (> 20) → R/O aortic dissection ก่อนให้ antithrombotic/SK`);
+  if(Math.max(ra,la)>180)H.push('SBP > 180 → relative CI ของ fibrinolytic');
+  if(+S.age>=75&&tx.some(v=>/Clopidogrel (300|600)/.test(v)))H.push('อายุ ≥ 75 ถ้าจะให้ fibrinolytic: clopidogrel 75 mg ไม่ loading');
+  if(/stroke|CVA|infarct/i.test(S.last||'')&&!arr('ciA').includes('Ischemic stroke < 3 เดือน'))H.push('Last admit มี stroke → เช็ก CI ของ fibrinolytic (ischemic stroke < 3 เดือน)');
+  return {E,D,parts,imp,H,ra,la};
+}
+function killipSug(sb){const pe=[...arr('lung'),...arr('ext'),...arr('heart'),...arr('cxr')];
+  if(sb&&sb<90&&pe.some(v=>/Cold|CRT/.test(v)))return 'IV';if(pe.some(v=>/Crepitation both|Pulmonary edema/.test(v)))return 'III';if(pe.some(v=>/S3|Fine crep|congestion/.test(v)))return 'II';return 'I'}
+
+function build(a){
+  const ln=[],add=(...x)=>{const t=x.filter(Boolean).join(' ');if(t.trim())ln.push(t)},j=(...x)=>x.flat().filter(Boolean).join(', ');
+  add(`ขออนุญาต consult from รพ.${S.hosp||'…'}`);
+  add('Case',S.sex,S.age&&S.age+' yr');
+  const ud=j(arr('ud'),S.udx);ud&&add('U/D',ud);
+  S.last&&add('Last admit',S.last);
+  S.allergy==='มีประวัติแพ้'?add('Allergy :',S.allx||'(ระบุ)'):add(S.allergy);
+  const st=j(arr('status'));st&&add('Status เดิม :',st.replace(/, /g,' '));
+  const pta=diff(S.onset,S.door||hhmm());
+  const cc=j(arr('cc'));cc&&add('CC :',cc,pta!=null&&S.onset?dur(pta)+' PTA':'');
+  S.onset&&add(`Onset ${S.onset}`+(S.door?` · ถึง รพ. ${S.door}`:''));
+  S.pi&&add('PI :',S.pi);
+  const pc=j(arr('pc'));pc&&add('Chest pain :',pc,arr('rad').length?'ร้าว'+arr('rad').join(', '):'');
+  const as=j(arr('assoc'));as&&add('อาการร่วม :',as);
+  (S.ps||S.ps2)&&add('Pain score :',S.ps2||S.ps+'/10');
+  const sp=S.sp1?`SpO2 ${S.sp1}${S.sp2?' > '+S.sp2:''}%${S.o2?S.o2==='RA'?' (RA)':` (on ${S.o2})`:''}`:'';
+  const vs=[S.bt&&'BT '+S.bt,S.pr&&'PR '+S.pr,S.rr&&'RR '+S.rr,sp,(S.bpRA||S.bpLA)&&'BP '+(S.bpRA||S.bpLA)].filter(Boolean);
+  vs.length&&add('V/S',vs.join(' '));
+  const b4=[['RA','bpRA'],['LA','bpLA'],['RL','bpRL'],['LL','bpLL']].filter(([,k])=>S[k]).map(([l,k])=>`${l} ${S[k]}`);
+  b4.length>1&&add('BP 4 รยางค์ :',b4.join(' | '));
+  S.dtx&&add(`DTX ${S.dtx} mg%`);
+  const h=j(arr('heart'));h&&add('Heart :',h);
+  const l=j(arr('lung'));l&&add('Lung :',l);
+  const e=j(arr('ext'));e&&add('Ext :',e);
+  const g=(S.gE||S.gV||S.gM)?`E${S.gE||'?'}V${S.gV||'?'}M${S.gM||'?'}`:'';
+  (g||S.motor)&&add('Neuro :',j(g,S.motor&&'Rt '+S.motor.replace('/','/Lt ')));
+  S.killip&&add('Killip class',S.killip);
+  const ek=j(S.rhythm&&(S.rhythm+(S.rate?' '+S.rate:'')),!S.rhythm&&S.rate&&'rate '+S.rate,a.parts,arr('ekgx'));
+  ek&&add(`ECG${S.ekgT?' ('+S.ekgT+')':''} :`,ek);
+  const cx=j(arr('cxr'),S.cxrx);cx&&add('CXR :',cx);
+  const lb=j(S.trop&&'Trop '+S.trop,S.cr&&'Cr '+S.cr,S.k&&'K '+S.k,S.labx);lb&&add('Lab :',lb);
+  const tm=[S.onset&&S.door&&'onset-door '+dur(diff(S.onset,S.door)),S.door&&S.ekgT&&'door-EKG '+dur(diff(S.door,S.ekgT))].filter(Boolean);
+  tm.length&&add('Time :',tm.join(', '));
+  const tx=j(arr('tx'),S.txx);tx&&add('Tx ที่ให้แล้ว :',tx);
+  if(arr('ciA').length||arr('ciR').length)add('Fibrinolytic CI :',j(arr('ciA').length&&'Absolute: '+arr('ciA').join(', '),arr('ciR').length&&'Relative: '+arr('ciR').join(', ')));
+  else if(S.ciNo)add('Fibrinolytic CI : ไม่มี');
+  S.imp&&add('Imp',S.imp);
+  arr('ask').length&&add('รบกวน',arr('ask').join(', '),'ครับ/ค่ะ');
+  const ph=SLOTS.filter(([k])=>P[k]).map(([,l])=>l);ph.length&&add('แนบรูป :',ph.join(', '));
+  return ln.join('\n');
+}
+function buildR(){
+  const ln=[];ln.push(`ตอบ consult${R.rt?' ('+R.rt+')':''}`);
+  R.dx&&ln.push(`Dx : ${R.dx}${R.terr?' — '+R.terr:''}`);
+  const p=[...(R.rep||[]),...(R.med||[]),...(R.oth||[])];
+  if(p.length){ln.push('Plan :');p.forEach(x=>ln.push('- '+x))}
+  R.note&&ln.push(R.note);R.name&&ln.push('— '+R.name);
+  return ln.join('\n');
+}
+function missing(){const m=[],L=S.leads;
+  if(!S.onset)m.push('เวลา onset');if(!G12.some(k=>L[k])&&!S.rhythm)m.push('EKG');
+  if(!['V7','V8','V9'].some(k=>L[k]))m.push('V7-9');if(!['V3R','V4R'].some(k=>L[k]))m.push('V3R/4R');
+  if(!(S.bpRA&&S.bpLA))m.push('BP แขน 2 ข้าง');if(!P.ekg)m.push('รูป EKG');if(!arr('cxr').length&&!P.cxr)m.push('CXR');
+  if(!S.ps&&!S.ps2)m.push('pain score');return m}
+function drawSlot(k){const l=SLOTS.find(s=>s[0]===k)[1],el=$('#ph-'+k);
+  el.innerHTML=P[k]?`<img src="${P[k]}" alt="${esc(l)}"><i>${esc(l)}</i><button type="button" class="x" data-del="${k}">ลบ</button>`:`<b>+</b>${esc(l)}`}
+
+function sync(fill=true){
+  if(fill)$$('[data-k]').forEach(el=>{if(el.classList.contains('chips')||el===document.activeElement)return;const o=scope(el);el.value=o[el.dataset.k]??''});
+  $$('.chips[data-k]').forEach(c=>{const v=scope(c)[c.dataset.k];c.querySelectorAll('.chip').forEach(b=>b.classList.toggle('on',Array.isArray(v)?v.includes(b.dataset.v):v===b.dataset.v))});
+  $('#g12').innerHTML=G12.map(cell).join('');$('#gx').innerHTML=EXT.map(cell).join('');
+  const a=analyse();
+  if(!S.impDirty){S.imp=a.imp;if(document.activeElement!==$('#imp'))$('#imp').value=a.imp}
+  $('#hints').innerHTML=a.H.map(h=>`<div class="hint">${esc(h)}</div>`).join('');
+  const ks=killipSug(Math.max(a.ra,a.la)||0);$('#ks').textContent=`แนะนำ: ${ks}`;
+  $('#bpd').textContent=a.ra&&a.la?`ต่างกันระหว่างแขน ${Math.abs(a.ra-a.la)} mmHg${Math.abs(a.ra-a.la)>20?' — เกิน 20':''}`:'';
+  $('#out').textContent=build(a);$('#outR').textContent=buildR();
+  const m=missing(),mi=$('#miss');
+  if(tab==='r'){mi.className='miss';mi.textContent='ข้อความตอบกลับพร้อมคัดลอก'}
+  else{mi.className='miss'+(m.length?'':' ok');mi.innerHTML=m.length?`<b>ยังขาด ${m.length}</b> · ${esc(m.join(', '))}`:'<b>ข้อมูลหลักครบ</b> · พร้อมส่ง'}
+  save();
+}
+const shrink=f=>new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const sc=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.85))};im.onerror=rej;im.src=u});
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast('คัดลอกแล้ว — วางในแชทได้เลย')}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.append(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}ta.remove();toast(ok?'คัดลอกแล้ว':'คัดลอกไม่ได้ — กดค้างที่ข้อความเพื่อคัดลอก')}}
+const openOv=html=>{$('#sheet').innerHTML=html;$('#ov').hidden=false};
+const closeOv=()=>{$('#ov').hidden=true;$('#sheet').innerHTML=''};
+let lastBlob=null;
+async function collage(){
+  const ks=SLOTS.filter(([k])=>P[k]);if(!ks.length){toast('ยังไม่มีรูป — เพิ่มในหัวข้อ “รูป”');return}
+  const ims=await Promise.all(ks.map(([k])=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=P[k]})));
+  const W=1200,hd=96,lb=52,hs=ims.map(i=>Math.round(i.height*W/i.width)),H=hd+hs.reduce((s,h)=>s+h+lb,0);
+  const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#cf1f38';x.fillRect(0,0,W,hd);x.fillStyle='#fff';
+  x.font='700 34px "IBM Plex Sans Thai",sans-serif';x.fillText(`รพ.${S.hosp||'…'} · ${S.sex||''} ${S.age||''} yr`,24,44);
+  x.font='500 26px "IBM Plex Sans Thai",sans-serif';x.fillText((S.imp||'STEMI consult').slice(0,70),24,80);
+  let y=hd;ims.forEach((im,i)=>{x.fillStyle='#16181b';x.fillRect(0,y,W,lb);x.fillStyle='#fff';x.font='600 26px "IBM Plex Sans Thai",sans-serif';x.fillText(ks[i][1],24,y+35);y+=lb;x.drawImage(im,0,y,W,hs[i]);y+=hs[i]});
+  c.toBlob(b=>{lastBlob=b;const u=URL.createObjectURL(b);
+    openOv(`<h2>ภาพรวมสำหรับส่งต่อ</h2><p class="note">บนมือถือ: กดค้างที่รูป → บันทึก/แชร์ แล้วส่งใน LINE พร้อมข้อความ</p><img src="${u}" alt="ภาพรวม EKG และ CXR"><div class="act mt"><button type="button" class="btn pri" id="cpImg">คัดลอกรูป</button><button type="button" class="btn" id="shImg">แชร์</button><button type="button" class="btn" data-close>ปิด</button></div>`)},'image/jpeg',.88);
+}
+function sample(){S={leads:{},hosp:'อต',sex:'female',age:'82',ud:['HT'],last:'27-29/10/69 Rt hemiparesis > Acute ischemic stroke',allergy:'Deny drug/food allergy',status:['bed ridden','พูดไม่ได้'],cc:['หายใจเหนื่อย'],onset:'13:00',door:'13:10',ps2:'ประเมินไม่ได้',
+  pi:'ลูกชายให้ประวัติ ผู้ป่วยนอนอยู่ดีๆ ดูกระสับกระส่าย พลิกตัวไปมา ถอดเสื้อผ้า หายใจหอบ ไม่มีไข้ ไม่ไอ ไม่สำลัก สื่อสารไม่ได้เดิม นอนพักอาการไม่ทุเลา เรียก EMS ออกรับ SpO2 RA 89%, air hunger, DTX 171',
+  bt:'36.7',pr:'120',rr:'40',sp1:'88',sp2:'99',o2:'ETT',bpRA:'133/75',dtx:'171',heart:['Regular','Tachycardia'],lung:['Wheeze both','Subcostal retraction'],gE:'4',gV:'1',gM:'5',motor:'0/3',killip:'III',
+  rhythm:'Sinus tachycardia',rate:'120',tx:['O2','ETT intubation'],ciA:['Ischemic stroke < 3 เดือน'],ask:['ขอคำแนะนำการรักษา']};
+  ['I','II','III','aVL','aVF','V1','V2','V3','V4','V5','V6'].forEach(k=>S.leads[k]='D');['aVR','V7','V8','V9'].forEach(k=>S.leads[k]='E');
+  P={};SLOTS.forEach(([k])=>drawSlot(k));sync();toast('โหลดเคสตัวอย่างแล้ว');scrollTo({top:0})}
+
+document.addEventListener('click',e=>{
+  const t=e.target;let b;
+  if(b=t.closest('[data-del]')){e.preventDefault();delete P[b.dataset.del];drawSlot(b.dataset.del);sync(false);return}
+  if(b=t.closest('.ins')){const ta=$('#pi');ta.value=(ta.value.trim()+' '+b.dataset.t).trim();S.pi=ta.value;sync(false);return}
+  if(b=t.closest('.chip')){const c=b.parentElement;if(!c.dataset.k)return;const o=scope(c),k=c.dataset.k,v=b.dataset.v;
+    if(c.dataset.m){const a=o[k]||[],i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);o[k]=a}else o[k]=o[k]===v?'':v;
+    if(k==='ps'&&o.ps)S.ps2='';if(k==='ps2'&&o.ps2)S.ps='';sync();return}
+  if(b=t.closest('.lead')){const n=b.dataset.l,cyc=EXT.includes(n)?['','N','E','D']:['','E','D'],cur=S.leads[n]||'';S.leads[n]=cyc[(cyc.indexOf(cur)+1)%cyc.length];sync(false);return}
+  if(b=t.closest('[data-now]')){const o=scope(b);o[b.dataset.now]=hhmm();sync();return}
+  if(b=t.closest('.tab')){tab=b.dataset.tab;$$('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#tab-c').hidden=tab!=='c';$('#tab-r').hidden=tab!=='r';$('#nav').hidden=tab!=='c';scrollTo({top:0});sync(false);return}
+  if(b=t.closest('[data-copy]')){copyText($('#'+b.dataset.copy).textContent);return}
+  if(t.id==='dockCopy'){copyText($(tab==='r'?'#outR':'#out').textContent);return}
+  if(t.id==='collage'){collage();return}
+  if(t.id==='sample'){sample();return}
+  if(t.id==='impReset'){S.impDirty=false;$('#imp').value='';sync();return}
+  if(t.id==='clear'){openOv(`<h2>เริ่มเคสใหม่?</h2><p>ข้อมูลเคสนี้และรูปจะถูกล้าง (ชื่อ รพ. ยังจำไว้)</p><div class="act"><button type="button" class="btn pri" id="doClear">ล้างเคส</button><button type="button" class="btn" data-close>ยกเลิก</button></div>`);return}
+  if(t.id==='doClear'){S={leads:{},hosp:S.hosp};P={};SLOTS.forEach(([k])=>drawSlot(k));closeOv();sync();toast('เริ่มเคสใหม่แล้ว');scrollTo({top:0});return}
+  if(t.id==='clearR'){R={name:R.name};sync();return}
+  if(t.id==='cpImg'){(async()=>{try{await navigator.clipboard.write([new ClipboardItem({'image/png':await new Promise(r=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas');c.width=i.width;c.height=i.height;c.getContext('2d').drawImage(i,0,0);c.toBlob(r,'image/png')};i.src=URL.createObjectURL(lastBlob)})})]);toast('คัดลอกรูปแล้ว')}catch(err){toast('เบราว์เซอร์นี้คัดลอกรูปไม่ได้ — กดค้างที่รูปแทน')}})();return}
+  if(t.id==='shImg'){(async()=>{try{const f=new File([lastBlob],'stemi-consult.jpg',{type:'image/jpeg'});await navigator.share({files:[f],text:$('#out').textContent})}catch(err){toast('แชร์ตรงไม่ได้ในหน้านี้ — กดค้างที่รูปเพื่อบันทึก')}})();return}
+  if(t.closest('[data-close]')||t.id==='ov'){closeOv();return}
+});
+document.addEventListener('input',e=>{const el=e.target;if(!el.dataset.k||el.classList.contains('chips'))return;const o=scope(el);o[el.dataset.k]=el.value;if(el.id==='imp')S.impDirty=!!el.value;sync(false)});
+document.addEventListener('change',async e=>{const k=e.target.dataset.slot;if(!k)return;const f=e.target.files[0];if(!f)return;try{P[k]=await shrink(f);drawSlot(k);sync(false)}catch(err){toast('เปิดรูปนี้ไม่ได้')}e.target.value=''});
+load();SLOTS.forEach(([k])=>drawSlot(k));sync();
+}
+</script>
+</body>
+</html>
